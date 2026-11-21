@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "risarms-host"
+version = "0.6.0"
+description = "RISARMS umbrella: workspace layout, release bundling and operator checks"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+risarms-host = "risarms_host.cli:main"
+
+[project.optional-dependencies]
+test = ["pytest>=8.0"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["risarms_host*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "deployment/pi/tests"]
+pythonpath = ["."]
+
+[tool.ruff.lint]
+select = ["E9", "F", "I"]
