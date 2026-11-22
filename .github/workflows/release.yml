@@ -181,7 +181,8 @@ jobs:
           fi
 
           name="CORE-Server-${VERSION}-void-x86_64"
-          cyclonedx-py environment --output "release/sbom-${name}.cdx.json" --of JSON
+          cyclonedx-py environment --output-file "release/sbom-${name}.cdx.json" \
+            --output-reproducible --of JSON
           risarms-host provenance \
             --root . \
             --version "$VERSION" \
