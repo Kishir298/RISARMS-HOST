@@ -7,7 +7,7 @@ import json
 import sys
 from pathlib import Path
 
-from . import __version__, bundle, compat
+from . import __version__, bundle, compat, provenance, revisions
 from .checks import run_checks, workspace_checks
 from .layout import WORKSPACE_REPOS
 
@@ -72,12 +72,46 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     return EXIT_OK if ok else EXIT_FAIL
 
 
+def cmd_stage(args: argparse.Namespace) -> int:
+    root = Path(args.root)
+    try:
+        lock = revisions.load(root, args.lock)
+        result = revisions.stage(root, Path(args.dest), lock)
+    except revisions.RevisionError as exc:
+        print(f"stage failed: {exc}", file=sys.stderr)
+        return EXIT_FAIL
+    print(result)
+    return EXIT_OK
+
+
+def cmd_provenance(args: argparse.Namespace) -> int:
+    try:
+        pinned = revisions.validate(
+            revisions.load(Path(args.root), args.lock), expected_version=args.version
+        )
+        data = provenance.statement(
+            pinned,
+            version=args.version,
+            channel=args.channel,
+            artifacts=[Path(item) for item in args.artifact],
+            source_uri=args.source_uri,
+            workflow_ref=args.workflow,
+            run_id=args.run_id,
+        )
+        result = provenance.write(Path(args.out), data)
+    except (revisions.RevisionError, OSError) as exc:
+        print(f"provenance failed: {exc}", file=sys.stderr)
+        return EXIT_FAIL
+    print(result)
+    return EXIT_OK
+
+
 def cmd_bundle(args: argparse.Namespace) -> int:
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     try:
         result = bundle.assemble(Path(args.root), out, as_tar=args.tar)
-    except (bundle.BundleError, compat.CompatibilityError) as exc:
+    except (bundle.BundleError, compat.CompatibilityError, revisions.RevisionError) as exc:
         print(f"bundle failed: {exc}", file=sys.stderr)
         return EXIT_FAIL
     print(result)
@@ -119,6 +153,28 @@ def build_parser() -> argparse.ArgumentParser:
         "--tar", action="store_true", help="Also write tarball and SHA256SUMS"
     )
     bundler.set_defaults(func=cmd_bundle)
+
+    stager = sub.add_parser(
+        "stage", help="Materialise components pinned in components.lock.json"
+    )
+    stager.add_argument("--root", default=".", help="Umbrella checkout root")
+    stager.add_argument("--dest", required=True, help="Staging directory to create")
+    stager.add_argument("--lock", default=revisions.LOCK_NAME, help="Lock file name")
+    stager.set_defaults(func=cmd_stage)
+
+    prov = sub.add_parser(
+        "provenance", help="Write unsigned provenance for release artifacts"
+    )
+    prov.add_argument("--root", default=".", help="Umbrella checkout root")
+    prov.add_argument("--lock", default=revisions.LOCK_NAME, help="Lock file name")
+    prov.add_argument("--version", required=True, help="Release version")
+    prov.add_argument("--channel", required=True, help="stable or beta")
+    prov.add_argument("--artifact", action="append", required=True, help="Artifact path")
+    prov.add_argument("--out", required=True, help="Statement output path")
+    prov.add_argument("--source-uri", default="", help="Source repository URI")
+    prov.add_argument("--workflow", default="", help="Workflow ref that built it")
+    prov.add_argument("--run-id", default="", help="CI run identifier")
+    prov.set_defaults(func=cmd_provenance)
 
     return parser
 

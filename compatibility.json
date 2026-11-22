@@ -79,6 +79,9 @@
     "builder": "GitHub Actions",
     "artifact_naming": "CORE-Server-{version}-void-x86_64-{format}",
     "checksums": "SHA-256",
-    "sbom": "CycloneDX JSON"
+    "sbom": "CycloneDX JSON",
+    "provenance": "in-toto Statement (SLSA v1 shape), unsigned",
+    "component_lock": "components.lock.json",
+    "deterministic_archives": true
   }
 }

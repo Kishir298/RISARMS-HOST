@@ -39,9 +39,28 @@ BUNDLE_SOURCES = (
     "services",
     "deployment",
     "compatibility.json",
+    "components.lock.json",
 )
 
 BUNDLE_OPTIONAL = ("README.md", "LICENSE")
+
+#: Where each separately-versioned component lives inside an assembled bundle.
+#: These are the paths a release stages from the component's owning repository
+#: at the revision pinned in ``components.lock.json``; the umbrella only
+#: contributes deployment assets, the compatibility manifest and the lock.
+BUNDLE_COMPONENT_PATHS = {
+    "core-host": "CORE-HOST",
+    "core-client": "CORE-CLIENT",
+    "rescs": "services/RESCS",
+    "ascs": "services/ASCS",
+    "asis": "services/ASIS",
+    "tiviss-host": "services/TIVISS-HOST",
+}
+
+#: Umbrella-owned files copied verbatim into a staged release root.
+STAGE_UMBRELLA_FILES = ("compatibility.json", "components.lock.json")
+STAGE_UMBRELLA_DIRS = ("deployment",)
+STAGE_SERVICE_METADATA = ("SOURCE-PROVENANCE.json",)
 
 BUNDLE_REQUIREMENTS = (
     Component("core-host", "CORE-HOST", marker="core/web/portal.html"),

@@ -1,0 +1,309 @@
+name: Release
+
+# CORE server releases are owned by RISARMS-HOST after the repository split.
+# This workflow stages every component from its owning repository at the exact
+# commit pinned in components.lock.json, assembles the Void x86_64 bundle,
+# verifies installation from that bundle in a Void container, and produces
+# checksums, provenance and an SBOM. Releases are created as drafts only.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: "Build channel (workflow_dispatch never publishes)"
+        required: true
+        default: beta
+        type: choice
+        options: [beta, stable]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate release source
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      channel: ${{ steps.meta.outputs.channel }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install umbrella package
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[test]" ruff
+      - name: Lint and test the umbrella
+        run: |
+          ruff check --select E9,F,I risarms_host tests
+          python -m pytest -q --tb=short
+      - name: Derive and validate release metadata
+        id: meta
+        env:
+          INPUT_CHANNEL: ${{ inputs.channel }}
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          import tomllib
+          from pathlib import Path
+
+          from risarms_host import compat, revisions
+
+          root = Path(".")
+          project = tomllib.loads((root / "pyproject.toml").read_text())["project"]
+          version = project["version"]
+          if not re.fullmatch(r"\d+\.\d+\.\d+", version):
+              raise SystemExit(f"Unsupported CORE version: {version}")
+          package_version = re.search(
+              r'__version__ = "([^"]+)"', (root / "risarms_host/__init__.py").read_text()
+          ).group(1)
+          if package_version != version:
+              raise SystemExit(
+                  f"risarms_host/__init__.py {package_version} != pyproject {version}"
+              )
+
+          manifest = compat.load(root)
+          if compat.validate(manifest) != version:
+              raise SystemExit("compatibility.json version is out of date")
+          if manifest.get("server_deployment", {}).get("distribution") != "void":
+              raise SystemExit("compatibility.json must target Void Linux")
+          if manifest.get("server_deployment", {}).get("architectures") != ["x86_64"]:
+              raise SystemExit("compatibility.json must target x86_64")
+
+          pinned = revisions.validate(revisions.load(root), expected_version=version)
+          repositories = [component.repository for component in pinned]
+          if len(set(repositories)) != len(repositories):
+              raise SystemExit("components.lock.json pins the same repository twice")
+
+          ref = os.environ.get("GITHUB_REF_NAME", "")
+          tag_channel = ""
+          if ref.startswith("v"):
+              tag = ref[1:]
+              match = re.fullmatch(r"(\d+\.\d+\.\d+)(-beta\.\d+)?", tag)
+              if not match:
+                  raise SystemExit(f"Unsupported release tag: {ref}")
+              if match.group(1) != version:
+                  raise SystemExit(f"Tag {ref} does not match version {version}")
+              tag_channel = "beta" if match.group(2) else "stable"
+
+          channel = os.environ.get("INPUT_CHANNEL") or tag_channel or "stable"
+          if channel not in {"stable", "beta"}:
+              raise SystemExit(f"Unsupported channel: {channel}")
+          if tag_channel == "beta" and channel == "stable":
+              raise SystemExit("A beta tag cannot be published as stable")
+          prerelease = "true" if channel != "stable" or tag_channel == "beta" else "false"
+          if ref.startswith("v") and manifest.get("release_channel") != channel:
+              raise SystemExit(
+                  f"compatibility.json channel {manifest.get('release_channel')!r} "
+                  f"does not match release channel {channel!r}"
+              )
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a") as fh:
+              fh.write(f"version={version}\nchannel={channel}\nprerelease={prerelease}\n")
+          PY
+      - name: Umbrella doctor
+        run: risarms-host doctor --root .
+
+  assemble:
+    name: Assemble Void x86_64 bundle
+    needs: validate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install assembly tooling
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[test]" cyclonedx-bom
+      - name: Stage pinned component revisions
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+          risarms-host stage --root . --dest build/src
+          for marker in \
+            CORE-HOST/core/web/portal.html \
+            CORE-CLIENT/client/entrypoint.py \
+            services/RESCS/pyproject.toml \
+            services/ASCS/pyproject.toml \
+            services/ASIS/pyproject.toml \
+            services/TIVISS-HOST/pyproject.toml \
+            deployment/void/install.sh \
+            compatibility.json \
+            components.lock.json ; do
+            test -e "build/src/$marker" || { echo "staged release is missing $marker" >&2; exit 1; }
+          done
+          python - "$VERSION" <<'PY'
+          import sys
+          import tomllib
+          from pathlib import Path
+
+          version = sys.argv[1]
+          for component in ("CORE-HOST", "CORE-CLIENT"):
+              staged = tomllib.loads(
+                  Path(f"build/src/{component}/pyproject.toml").read_text()
+              )["project"]["version"]
+              if staged != version:
+                  raise SystemExit(f"{component} {staged} != release {version}")
+          PY
+      - name: Assemble archive, SBOM, provenance and checksums
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+          CHANNEL: ${{ needs.validate.outputs.channel }}
+        run: |
+          set -euo pipefail
+          SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)
+          export SOURCE_DATE_EPOCH
+
+          risarms-host bundle --root build/src --out release --tar
+          archive=$(ls release/CORE-Server-*.tar.gz)
+
+          # Reproducibility gate: the same staged tree must produce the same bytes.
+          risarms-host bundle --root build/src --out release-rebuild --tar
+          rebuilt=$(ls release-rebuild/CORE-Server-*.tar.gz)
+          if ! cmp "$archive" "$rebuilt"; then
+            echo "bundle assembly is not reproducible" >&2
+            exit 1
+          fi
+
+          name="CORE-Server-${VERSION}-void-x86_64"
+          cyclonedx-py environment --output "release/sbom-${name}.cdx.json" --of JSON
+          risarms-host provenance \
+            --root . \
+            --version "$VERSION" \
+            --channel "$CHANNEL" \
+            --artifact "$archive" \
+            --artifact "release/sbom-${name}.cdx.json" \
+            --source-uri "${{ github.server_url }}/${{ github.repository }}" \
+            --workflow "${{ github.workflow_ref }}" \
+            --run-id "${{ github.run_id }}" \
+            --out release/provenance.json
+
+          (cd release && sha256sum "$(basename "$archive")" "sbom-${name}.cdx.json" provenance.json > SHA256SUMS)
+          (cd release && sha256sum -c SHA256SUMS)
+
+          tar -tzf "$archive" | grep -F "${name}/deployment/void/install.sh" >/dev/null
+          tar -tzf "$archive" | grep -F "${name}/services/RESCS/pyproject.toml" >/dev/null
+          tar -tzf "$archive" | grep -F "${name}/components.lock.json" >/dev/null
+          tar -tzf "$archive" | grep -F "${name}/INSTALL.txt" >/dev/null
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CORE-${{ needs.validate.outputs.version }}-void-x86_64
+          path: |
+            release/CORE-Server-*.tar.gz
+            release/sbom-*.cdx.json
+            release/provenance.json
+            release/SHA256SUMS
+          if-no-files-found: error
+
+  verify-install:
+    name: Verify installation from the assembled bundle
+    needs: [validate, assemble]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: CORE-${{ needs.validate.outputs.version }}-void-x86_64
+          path: release
+      - name: Record the Void container image digest
+        run: |
+          docker pull ghcr.io/void-linux/void-glibc-full:latest
+          docker image inspect --format '{{index .RepoDigests 0}}' \
+            ghcr.io/void-linux/void-glibc-full:latest | tee release/void-image-digest.txt
+      - name: Install and assert inside the Void container
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+          chmod +x deployment/void/tests/container-install.sh
+          docker run --rm \
+            -v "$PWD/release:/release" \
+            -v "$PWD/deployment/void/tests:/tests:ro" \
+            ghcr.io/void-linux/void-glibc-full:latest \
+            /bin/sh /tests/container-install.sh "$VERSION"
+      - name: Show the container install report
+        if: always()
+        run: cat release/container-install-report.txt || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: container-install-evidence
+          path: |
+            release/container-install-report.txt
+            release/runit-status.txt
+            release/void-image-digest.txt
+          if-no-files-found: warn
+
+  publish:
+    name: Create draft release
+    needs: [validate, assemble, verify-install]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          pattern: CORE-*-void-x86_64
+          merge-multiple: true
+      - name: Verify release assets
+        run: |
+          set -eu
+          cd release
+          sha256sum -c SHA256SUMS
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.validate.outputs.version }}
+          CHANNEL: ${{ needs.validate.outputs.channel }}
+          PRERELEASE: ${{ needs.validate.outputs.prerelease }}
+        run: |
+          set -eu
+          notes=release-notes.md
+          {
+            printf 'CORE %s server release for Void Linux x86_64 glibc only.\n\n' "$VERSION"
+            printf 'Channel: %s\n\n' "$CHANNEL"
+            printf 'Assembled by RISARMS-HOST from components pinned in `components.lock.json`:\n\n'
+            python - <<'PY'
+            import json
+            from pathlib import Path
+
+            lock = json.loads(Path("components.lock.json").read_text())
+            for name, entry in sorted(lock["components"].items()):
+                print(f"- `{name}` — {entry['repository']} @ `{entry['revision']}`")
+            PY
+            printf '\nValidation status:\n\n'
+            printf -- '- Components staged from the pinned commits and installed by the shipped Void installer in a Void glibc container in CI.\n'
+            printf -- '- Archive assembly is byte-identical when repeated from the same staged tree.\n'
+            printf -- '- Provenance is an unsigned SLSA-shaped statement; it is not a signed attestation.\n'
+            printf -- '- Physical Void hardware install, reboot persistence, storage failure, backup/restore and upgrade/rollback remain unverified.\n'
+            printf -- '- No CORE server update signature is claimed by this release.\n\n'
+            printf 'Desktop builds are released separately from RISARMS-ui; unsigned Windows and\n'
+            printf 'ad-hoc-signed, unnotarized macOS beta assets are expected there until OS\n'
+            printf 'code-signing credentials are available.\n\n'
+            printf 'Install from the extracted directory with:\n\n'
+            printf '    sudo ./deployment/void/install.sh\n\n'
+            printf 'See INSTALL.txt in the archive for upgrade, rollback, backup and diagnostics.\n'
+          } > "$notes"
+          flags=(--draft --verify-tag --title "CORE ${VERSION} Void x86_64 (${CHANNEL})" --notes-file "$notes")
+          if [ "$PRERELEASE" = "true" ]; then flags+=(--prerelease); fi
+          gh release create "${GITHUB_REF_NAME}" release/* "${flags[@]}"

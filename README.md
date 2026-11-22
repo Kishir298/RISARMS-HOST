@@ -29,7 +29,11 @@ pip install -e ".[test]"
 risarms-host version                  # umbrella + compatibility.json version
 risarms-host doctor --root .          # manifest, version lock-step, deployment files
 risarms-host components --root ..     # sibling component checkouts
-risarms-host bundle --root .. --out release --tar
+risarms-host stage --root . --dest build/src   # pinned components + umbrella assets
+risarms-host bundle --root build/src --out release --tar
+risarms-host provenance --root . --version 0.6.0 --channel beta \
+  --artifact release/CORE-Server-0.6.0-void-x86_64.tar.gz \
+  --out release/provenance.json
 ```
 
 `risarms-host` is stdlib-only and requires Python 3.10 or newer. `doctor` exits
@@ -46,6 +50,10 @@ non-zero when a check fails.
 - `validation/` — recorded validation logs and `RELEASE-VALIDATION.json`.
 - `scripts/` — PyInstaller entry points used by `BUILDING.md`.
 - `compatibility.json` — compatibility source of truth for releases.
+- `components.lock.json` — exact commit of every component included in a server
+  release; `risarms-host stage` materialises these pins.
+- `.github/workflows/release.yml` — server release orchestration (staging,
+  assembly, install verification, checksums, provenance, SBOM, draft release).
 - `RELEASE-MANIFEST.json` — frozen per-file SHA-256 record of the 0.5.0 release
   (historical evidence; it is not regenerated for later releases).
 

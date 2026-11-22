@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from risarms_host import bundle, compat
-from risarms_host.layout import BUNDLE_REQUIREMENTS
+from risarms_host import bundle, compat, revisions
+from risarms_host.layout import BUNDLE_COMPONENT_PATHS, BUNDLE_REQUIREMENTS
 
 PORTAL = "core/web/portal.html"
 INSTALL_SH = "deployment/void/install.sh"
@@ -33,6 +33,26 @@ def make_source(root: Path) -> None:
                 "release_channel": "beta",
                 "server_deployment": {"distribution": "void", "architectures": ["x86_64"]},
                 "components": {"host": {"version": "9.9.9"}},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def write_lock(root: Path, version: str) -> None:
+    (root / revisions.LOCK_NAME).write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "version": version,
+                "components": {
+                    name: {
+                        "repository": "https://github.com/Kishir298/example.git",
+                        "revision": "b" * 40,
+                        "path": path,
+                    }
+                    for name, path in BUNDLE_COMPONENT_PATHS.items()
+                },
             }
         ),
         encoding="utf-8",
@@ -84,3 +104,28 @@ def test_tar_output_with_checksum(tmp_path):
         names = bundle_tar.getnames()
     assert f"{member_root}/{INSTALL_SH}" in names
     assert f"{member_root}/INSTALL.txt" in names
+
+
+def test_assembled_archives_are_reproducible(tmp_path, monkeypatch):
+    monkeypatch.setenv("SOURCE_DATE_EPOCH", "1700000000")
+    make_source(tmp_path)
+    first = bundle.assemble(tmp_path, tmp_path / "out1", as_tar=True)
+    second = bundle.assemble(tmp_path, tmp_path / "out2", as_tar=True)
+    assert first.read_bytes() == second.read_bytes()
+
+
+def test_valid_lock_is_bundled(tmp_path):
+    make_source(tmp_path)
+    write_lock(tmp_path, "9.9.9")
+    archive = bundle.assemble(tmp_path, tmp_path / "out", as_tar=True)
+    member_root = archive.name[: -len(".tar.gz")]
+    with tarfile.open(archive) as bundle_tar:
+        names = bundle_tar.getnames()
+    assert f"{member_root}/{revisions.LOCK_NAME}" in names
+
+
+def test_lock_version_must_match_manifest(tmp_path):
+    make_source(tmp_path)
+    write_lock(tmp_path, "1.1.1")
+    with pytest.raises(revisions.RevisionError, match="!= compatibility version"):
+        bundle.assemble(tmp_path, tmp_path / "out")

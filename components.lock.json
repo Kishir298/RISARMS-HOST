@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "release": "CORE Server",
+  "version": "0.6.0",
+  "target": "void-x86_64-glibc-runit",
+  "notes": "Release assembly pins every component to an exact 40-character commit. RISARMS-HOST contributes deployment assets, compatibility.json and this lock; the CORE and service sources are staged from their owning repositories.",
+  "components": {
+    "core-host": {
+      "repository": "https://github.com/Kishir298/CORE-HOST.git",
+      "revision": "8021b3b6be1b20f4da54d48b9e4c8f67e4ee26b7",
+      "path": "CORE-HOST"
+    },
+    "core-client": {
+      "repository": "https://github.com/Kishir298/CORE-CLIENT.git",
+      "revision": "a060bdbd0a14beb6e68bcec06053e58edb16fad5",
+      "path": "CORE-CLIENT"
+    },
+    "rescs": {
+      "repository": "https://github.com/Kishir298/RESCS.git",
+      "revision": "f1f19181fe8cf8cc1c2b3e490971e8c0a880d02d",
+      "path": "services/RESCS"
+    },
+    "ascs": {
+      "repository": "https://github.com/Kishir298/ASCS.git",
+      "revision": "d8900a969875ff55189f9b68c3d814529d2482a1",
+      "path": "services/ASCS"
+    },
+    "asis": {
+      "repository": "https://github.com/Kishir298/ASIS.git",
+      "revision": "00564c614f6a4241abc9b31fb821529272e4db4c",
+      "path": "services/ASIS"
+    },
+    "tiviss-host": {
+      "repository": "https://github.com/Kishir298/TIVISS-HOST.git",
+      "revision": "d3c5b65df332416af942a7abf60133a03ca05665",
+      "path": "services/TIVISS-HOST"
+    }
+  }
+}
