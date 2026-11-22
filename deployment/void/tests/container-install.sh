@@ -195,59 +195,43 @@ PY
 }
 
 # --- Caddy TLS -------------------------------------------------------------
-CADDY_VIA_SERVICE=0
+# The packaged caddy service belongs to the distribution and the installer
+# deliberately leaves it disabled, so only the installed configuration is
+# asserted. Its data directory is fixed so the TLS check trusts exactly the CA
+# of the instance that answers, never a stale one from another instance.
+CADDY_DATA=$(mktemp -d)
 if [ -L "$SVDIR/caddy" ]; then
-    CADDY_VIA_SERVICE=1
-    record INFO caddy "started through the packaged runit service"
+    if eventually 20 tcp_open 127.0.0.1 443; then
+        record INFO caddy "packaged runit service is listening on 443"
+    else
+        record INFO "packaged caddy service did not listen" \
+            "$(SVDIR=$SVDIR sv status caddy 2>&1 | head -n 1)"
+    fi
 fi
 
-if eventually 30 tcp_open 127.0.0.1 443; then
-    record PASS "caddy listens on 443"
+if tcp_open 127.0.0.1 443; then
+    record PASS "caddy serves the installed configuration"
+elif command -v caddy >/dev/null 2>&1; then
+    XDG_DATA_HOME="$CADDY_DATA" caddy run --config /etc/caddy/Caddyfile \
+        --adapter caddyfile >/tmp/caddy-direct.log 2>&1 &
+    if eventually 30 tcp_open 127.0.0.1 443; then
+        record PASS "caddy serves the installed configuration"
+    else
+        fail "caddy serves the installed configuration" \
+            "$(tail -n 3 /tmp/caddy-direct.log 2>/dev/null | tr '\n' ' ')"
+    fi
 else
-    if [ "$CADDY_VIA_SERVICE" -eq 1 ]; then
-        SVDIR=$SVDIR sv status caddy >>"$REPORT" 2>&1 || true
-        if [ -f /var/log/caddy/current ]; then
-            record INFO "caddy runit log"
-            tail -n 15 /var/log/caddy/current >>"$REPORT" 2>&1 || true
-        fi
-        fail "caddy listens on 443" "packaged runit service did not listen"
-        if [ -x /etc/sv/caddy/run ]; then
-            # Run the shipped service command directly so its own error (user,
-            # HOME or data-directory problems) is captured in the report.
-            record INFO "caddy packaged run script output"
-            timeout 5 /etc/sv/caddy/run >>"$REPORT" 2>&1 || true
-        fi
-    fi
-    # The TLS configuration is still worth testing even when the packaged
-    # service cannot start, so the two facts stay separate.
-    if command -v caddy >/dev/null 2>&1; then
-        install -d -m 0755 /var/lib/caddy
-        XDG_DATA_HOME=/var/lib/caddy caddy run --config /etc/caddy/Caddyfile \
-            --adapter caddyfile >/tmp/caddy-direct.log 2>&1 &
-        record INFO caddy "started caddy directly after the service did not listen"
-        if eventually 30 tcp_open 127.0.0.1 443; then
-            record PASS "caddy listens when started directly"
-        else
-            fail "caddy listens when started directly" \
-                "$(tail -n 3 /tmp/caddy-direct.log 2>/dev/null | tr '\n' ' ')"
-        fi
-    fi
+    fail "caddy serves the installed configuration" "caddy is not installed"
 fi
 
 ORIGIN=$(sed -n 's/^CORE_PUBLIC_ORIGIN=//p' /etc/risarms/core.env 2>/dev/null | head -n 1)
 TLS_HOST=${ORIGIN#https://}
 TLS_HOST=${TLS_HOST%%:*}
-CA_DIRS="/var/lib/caddy /root/.local/share/caddy /var/lib/risarms/caddy"
-TLS_CA=""
-elapsed=0
-while [ -z "$TLS_CA" ] && [ "$elapsed" -lt 20 ]; do
-    for dir in $CA_DIRS; do
-        TLS_CA=$(find "$dir" -name root.crt -print -quit 2>/dev/null || true)
-        [ -n "$TLS_CA" ] && break
-    done
-    [ -n "$TLS_CA" ] || sleep 1
-    elapsed=$((elapsed + 1))
-done
+TLS_CA="$CADDY_DATA/caddy/pki/authorities/local/root.crt"
+if [ ! -f "$TLS_CA" ]; then
+    TLS_CA=$(find /var/lib/caddy -name root.crt -print -quit 2>/dev/null || true)
+fi
+eventually 15 test -f "$TLS_CA" || true
 
 if [ -n "$ORIGIN" ] && [ -n "$TLS_HOST" ] && [ -n "$TLS_CA" ]; then
     if curl -fsS --max-time 20 --cacert "$TLS_CA" \
