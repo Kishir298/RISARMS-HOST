@@ -3,11 +3,11 @@
   "release": "CORE Server",
   "version": "0.6.0",
   "target": "void-x86_64-glibc-runit",
-  "notes": "Release assembly pins every component to an exact 40-character commit. RISARMS-HOST contributes deployment assets, compatibility.json and this lock; the CORE and service sources are staged from their owning repositories.",
+  "notes": "Release assembly pins every component to an exact 40-character commit that has a passing CI run in its owning repository. RISARMS-HOST contributes deployment assets, compatibility.json and this lock; the CORE and service sources are staged from their owning repositories.",
   "components": {
     "core-host": {
       "repository": "https://github.com/Kishir298/CORE-HOST.git",
-      "revision": "8021b3b6be1b20f4da54d48b9e4c8f67e4ee26b7",
+      "revision": "33963b007b12630c2ad4f37985ab5327efad1a8a",
       "path": "CORE-HOST"
     },
     "core-client": {
@@ -17,12 +17,12 @@
     },
     "rescs": {
       "repository": "https://github.com/Kishir298/RESCS.git",
-      "revision": "f1f19181fe8cf8cc1c2b3e490971e8c0a880d02d",
+      "revision": "6b8e78084c1dbed1ef643f4dc0f6412b8b79b90c",
       "path": "services/RESCS"
     },
     "ascs": {
       "repository": "https://github.com/Kishir298/ASCS.git",
-      "revision": "d8900a969875ff55189f9b68c3d814529d2482a1",
+      "revision": "aaeb6515dc4d10adce1b42c459affb98770e556f",
       "path": "services/ASCS"
     },
     "asis": {
