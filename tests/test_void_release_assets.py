@@ -79,6 +79,8 @@ def test_backup_covers_data_configuration_and_retention():
     assert "sha256sum" in text
     assert "RISARMS_BACKUP_RETENTION_DAYS" in text
     assert "sv down risarms-core" in text
+    # runit control state must not be archived: restoring it kills runsvdir.
+    assert "--exclude='etc/sv/*/supervise'" in text
 
 
 def test_restore_validates_archive_paths_and_rejects_symlinks():
@@ -87,6 +89,8 @@ def test_restore_validates_archive_paths_and_rejects_symlinks():
     assert "unsafe paths" in text
     assert "symbolic links" in text
     assert "sha256sum -c" in text
+    # Older archives may still contain supervise/; extraction must skip it.
+    assert "--exclude='etc/sv/*/supervise'" in text
 
 
 def test_upgrade_and_rollback_use_versioned_venvs_and_health_checks():

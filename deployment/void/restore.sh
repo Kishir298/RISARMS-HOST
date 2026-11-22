@@ -65,7 +65,10 @@ restore_services() {
 }
 trap 'rm -f "$listing"; restore_services' EXIT INT TERM
 
-tar -C / -xzpf "$ARCHIVE"
+# Never write back runit's live control state, even from an archive made by an
+# older version that captured supervise/: overwriting it stops the supervisor.
+tar -C / --exclude='etc/sv/*/supervise' --exclude='etc/sv/*/supervise/*' \
+    -xzpf "$ARCHIVE"
 chown -R risarms:risarms \
     "$RISARMS_DATA/core" "$RISARMS_DATA/rescs" "$RISARMS_LOG" 2>/dev/null || true
 chmod 0600 "$RISARMS_ETC"/*.env "$RISARMS_ETC/gateway.json" 2>/dev/null || true

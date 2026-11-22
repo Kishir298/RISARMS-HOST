@@ -34,7 +34,12 @@ paths=(etc/risarms var/lib/risarms/core var/lib/risarms/rescs var/lib/risarms/fr
 for optional in etc/caddy/risarms etc/nftables.d/risarms.nft etc/elogind/logind.conf.d/risarms.conf etc/sv/risarms-core etc/sv/risarms-rescs; do
     if [[ -e /$optional ]]; then paths+=("$optional"); fi
 done
-tar -C / --one-file-system -czf "$ARCHIVE" "${paths[@]}"
+# runit keeps live control state (supervise/) inside each service directory.
+# Archiving it would restore stale pid/status files over a running supervisor
+# and kill it, so only the service definitions are captured.
+tar -C / --one-file-system -czf "$ARCHIVE" \
+    --exclude='etc/sv/*/supervise' --exclude='etc/sv/*/supervise/*' \
+    "${paths[@]}"
 chmod 0600 "$ARCHIVE"
 if command -v sha256sum >/dev/null 2>&1; then
     (cd "$DEST" && sha256sum "$(basename "$ARCHIVE")" > "$(basename "$ARCHIVE").sha256")
