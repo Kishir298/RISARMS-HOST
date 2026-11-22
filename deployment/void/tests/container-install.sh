@@ -211,6 +211,12 @@ else
             tail -n 15 /var/log/caddy/current >>"$REPORT" 2>&1 || true
         fi
         fail "caddy listens on 443" "packaged runit service did not listen"
+        if [ -x /etc/sv/caddy/run ]; then
+            # Run the shipped service command directly so its own error (user,
+            # HOME or data-directory problems) is captured in the report.
+            record INFO "caddy packaged run script output"
+            timeout 5 /etc/sv/caddy/run >>"$REPORT" 2>&1 || true
+        fi
     fi
     # The TLS configuration is still worth testing even when the packaged
     # service cannot start, so the two facts stay separate.
