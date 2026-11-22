@@ -39,7 +39,7 @@ check() {
     fi
 }
 
-record INFO os "$(. /etc/os-release && printf '%s %s' "$ID" "$VERSION_ID")"
+record INFO os "$(. /etc/os-release && printf '%s %s' "${ID:-unknown}" "${VERSION_ID:-rolling}")"
 record INFO kernel "$(uname -m)"
 record INFO version "$VERSION"
 
@@ -96,7 +96,12 @@ check "services are not enabled by the installer" test ! -e /var/service/risarms
 
 # Startup evidence. The container is not the supported hardware target, so a
 # non-running service is recorded rather than treated as an install failure.
-mkdir -p /var/service
+# Void ships /var/service as a symlink into /run; create the target rather
+# than replacing it.
+install -d -m 0755 /run/runit/service 2>/dev/null || true
+if [ ! -e /var/service ] && [ ! -L /var/service ]; then
+    mkdir -p /var/service
+fi
 ln -sf /etc/sv/risarms-rescs /var/service/risarms-rescs
 ln -sf /etc/sv/risarms-core /var/service/risarms-core
 if command -v runsvdir >/dev/null 2>&1; then
