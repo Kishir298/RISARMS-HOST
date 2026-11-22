@@ -21,7 +21,10 @@ risarms_require_void() {
     . /etc/os-release
     [[ ${ID:-} == void ]] || risarms_die "CORE server releases support Void Linux only."
     [[ $(uname -m) == x86_64 ]] || risarms_die "CORE server releases support x86_64 only."
-    ldd --version 2>/dev/null | grep -qi glibc || risarms_die "glibc is required."
+    # GNU libc reports "ldd (GNU libc) 2.4x" on Void and "ldd (Debian GLIBC …)"
+    # on Debian derivatives; musl reports neither.
+    ldd --version 2>/dev/null | grep -Eqi 'glibc|gnu libc|gnu c library' ||
+        risarms_die "glibc is required (musl is not a supported CORE server target)."
 }
 
 risarms_require_commands() {
