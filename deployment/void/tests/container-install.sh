@@ -96,21 +96,20 @@ check "services are not enabled by the installer" test ! -e /var/service/risarms
 
 # Startup evidence. The container is not the supported hardware target, so a
 # non-running service is recorded rather than treated as an install failure.
-# Void ships /var/service as a symlink into /run; create the target rather
-# than replacing it.
-install -d -m 0755 /run/runit/service 2>/dev/null || true
-if [ ! -e /var/service ] && [ ! -L /var/service ]; then
-    mkdir -p /var/service
-fi
-ln -sf /etc/sv/risarms-rescs /var/service/risarms-rescs
-ln -sf /etc/sv/risarms-core /var/service/risarms-core
+# Use a private service directory: the image's /var/service is a dangling
+# symlink and enabling there is a host-policy decision, not an install check.
+SVDIR=/run/risarms-validation-sv
 if command -v runsvdir >/dev/null 2>&1; then
-    runsvdir /var/service >/tmp/runsvdir.log 2>&1 &
+    install -d -m 0755 "$SVDIR"
+    ln -sf /etc/sv/risarms-rescs "$SVDIR/risarms-rescs"
+    ln -sf /etc/sv/risarms-core "$SVDIR/risarms-core"
+    SVDIR="$SVDIR" runsvdir "$SVDIR" >/tmp/runsvdir.log 2>&1 &
     sleep 12
-    sv status risarms-core risarms-rescs >"$REPORT_DIR/runit-status.txt" 2>&1 || true
+    SVDIR="$SVDIR" sv status risarms-core risarms-rescs \
+        >"$REPORT_DIR/runit-status.txt" 2>&1 || true
     cat "$REPORT_DIR/runit-status.txt" | tee -a "$REPORT"
     for service in risarms-core risarms-rescs; do
-        if sv status "$service" 2>/dev/null | grep -q '^run:'; then
+        if SVDIR="$SVDIR" sv status "$service" 2>/dev/null | grep -q '^run:'; then
             record INFO "runit: $service reported running"
         else
             record INFO "runit: $service did not report running (container evidence only)"
