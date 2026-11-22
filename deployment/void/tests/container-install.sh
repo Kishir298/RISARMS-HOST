@@ -113,8 +113,18 @@ if command -v runsvdir >/dev/null 2>&1; then
             record INFO "runit: $service reported running"
         else
             record INFO "runit: $service did not report running (container evidence only)"
+            name=${service#risarms-}
+            log="/var/log/risarms/$name/current"
+            if [ -f "$log" ]; then
+                record INFO "runit: $service last log lines"
+                tail -n 15 "$log" >>"$REPORT" 2>&1 || true
+            fi
         fi
     done
+    if [ -s /tmp/runsvdir.log ]; then
+        record INFO "runsvdir output"
+        tail -n 10 /tmp/runsvdir.log >>"$REPORT" 2>&1 || true
+    fi
 else
     record INFO "runit: runsvdir unavailable"
 fi
