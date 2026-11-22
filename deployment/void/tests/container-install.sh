@@ -87,7 +87,8 @@ check "runit core service definition" test -f /etc/sv/risarms-core/run
 check "runit rescs service definition" test -f /etc/sv/risarms-rescs/run
 check "caddy portal configuration" test -f /etc/caddy/risarms/portal.caddy
 check "nftables include" test -f /etc/nftables.d/risarms.nft
-check "install state recorded" sh -c 'ls /var/lib/risarms/install-state/*.json >/dev/null 2>&1'
+check "install state records the version" \
+    sh -c "grep -qx '${VERSION}' /var/lib/risarms/install-state/version"
 check "core.env is 0600" sh -c '[ "$(stat -c %a /etc/risarms/core.env)" = "600" ]'
 check "rescs.env is 0600" sh -c '[ "$(stat -c %a /etc/risarms/rescs.env)" = "600" ]'
 check "portal html installed" test -f /var/lib/risarms/frontend/index.html
