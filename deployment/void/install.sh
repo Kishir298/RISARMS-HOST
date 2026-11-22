@@ -72,6 +72,15 @@ build_venv() {
     "$staging/bin/python" -c "import $3; print('$name ready')"
     rm -rf "$target"
     mv "$staging" "$target"
+    # pip writes console scripts whose shebang is the absolute interpreter path
+    # of the build directory. After the rename those paths no longer exist, so
+    # runit would fail with "file does not exist" even though the script does.
+    for script in "$target"/bin/*; do
+        [[ -f $script ]] || continue
+        if head -n 1 "$script" | grep -qF "$staging/bin/python"; then
+            sed -i "1s|$staging|$target|" "$script"
+        fi
+    done
 }
 
 risarms_snapshot_install "$STAMP" >/dev/null

@@ -79,6 +79,10 @@ check "core venv imports the pinned version" \
     /opt/risarms/core-venv/bin/python -c \
     "from core.version import __version__; raise SystemExit(0 if __version__ == '${VERSION}' else 1)"
 check "rescs venv imports" /opt/risarms/rescs-venv/bin/python -c "import rescs"
+# Console scripts embed an absolute interpreter path; after the versioned-venv
+# rename they must still run through the stable symlink.
+check "core-host console script runs" /opt/risarms/core-venv/bin/core-host --help
+check "rescs console script runs" /opt/risarms/rescs-venv/bin/rescs --help
 check "risarms-doctor installed" test -x /usr/local/sbin/risarms-doctor
 check "risarms-backup installed" test -x /usr/local/sbin/risarms-backup
 check "risarms-upgrade installed" test -x /usr/local/sbin/risarms-upgrade
