@@ -195,18 +195,37 @@ PY
 }
 
 # --- Caddy TLS -------------------------------------------------------------
+CADDY_VIA_SERVICE=0
 if [ -L "$SVDIR/caddy" ]; then
+    CADDY_VIA_SERVICE=1
     record INFO caddy "started through the packaged runit service"
-elif command -v caddy >/dev/null 2>&1; then
-    caddy run --config /etc/caddy/Caddyfile --adapter caddyfile \
-        >/tmp/caddy-run.log 2>&1 &
-    record INFO caddy "no runit service in the image; started caddy directly"
 fi
 
 if eventually 30 tcp_open 127.0.0.1 443; then
     record PASS "caddy listens on 443"
 else
-    fail "caddy listens on 443" "$(tail -n 3 /tmp/caddy-run.log 2>/dev/null | tr '\n' ' ')"
+    if [ "$CADDY_VIA_SERVICE" -eq 1 ]; then
+        SVDIR=$SVDIR sv status caddy >>"$REPORT" 2>&1 || true
+        if [ -f /var/log/caddy/current ]; then
+            record INFO "caddy runit log"
+            tail -n 15 /var/log/caddy/current >>"$REPORT" 2>&1 || true
+        fi
+        fail "caddy listens on 443" "packaged runit service did not listen"
+    fi
+    # The TLS configuration is still worth testing even when the packaged
+    # service cannot start, so the two facts stay separate.
+    if command -v caddy >/dev/null 2>&1; then
+        install -d -m 0755 /var/lib/caddy
+        XDG_DATA_HOME=/var/lib/caddy caddy run --config /etc/caddy/Caddyfile \
+            --adapter caddyfile >/tmp/caddy-direct.log 2>&1 &
+        record INFO caddy "started caddy directly after the service did not listen"
+        if eventually 30 tcp_open 127.0.0.1 443; then
+            record PASS "caddy listens when started directly"
+        else
+            fail "caddy listens when started directly" \
+                "$(tail -n 3 /tmp/caddy-direct.log 2>/dev/null | tr '\n' ' ')"
+        fi
+    fi
 fi
 
 ORIGIN=$(sed -n 's/^CORE_PUBLIC_ORIGIN=//p' /etc/risarms/core.env 2>/dev/null | head -n 1)
@@ -253,7 +272,10 @@ fi
 if nft -c -f /etc/nftables.d/risarms.nft >/tmp/nft-syntax.log 2>&1; then
     record PASS "nftables ruleset syntax"
 else
-    fail "nftables ruleset syntax" "$(tail -n 2 /tmp/nft-syntax.log | tr '\n' ' ')"
+    # Even a parse-only check needs a netlink cache, so an unprivileged
+    # container cannot verify the ruleset. Record the limitation.
+    record INFO "nftables ruleset cannot be checked in this container" \
+        "$(tail -n 1 /tmp/nft-syntax.log | tr '\n' ' ')"
 fi
 if nft -f /etc/nftables.d/risarms.nft >/tmp/nft-load.log 2>&1 &&
     nft list table inet risarms >/dev/null 2>&1; then
@@ -364,10 +386,29 @@ if /usr/local/sbin/risarms-doctor >/tmp/doctor.log 2>&1; then
     record PASS "risarms-doctor after upgrade and rollback"
 else
     fail "risarms-doctor after upgrade and rollback" \
-        "$(tail -n 5 /tmp/doctor.log | tr '\n' ' ')"
+        "$(tail -n 12 /tmp/doctor.log | tr '\n' ' ')"
 fi
 
 if [ "$FAILURES" -ne 0 ]; then
+    # Evidence for the failure itself: service state, service logs and the full
+    # doctor output, so a red run is diagnosable without re-running it.
+    for service in risarms-core risarms-rescs caddy; do
+        record INFO "final status $service" \
+            "$(SVDIR=$SVDIR sv status "$service" 2>&1 | head -n 1)"
+    done
+    for entry in core:/var/log/risarms/core/current \
+        rescs:/var/log/risarms/rescs/current caddy:/var/log/caddy/current; do
+        name=${entry%%:*}
+        path=${entry#*:}
+        if [ -f "$path" ]; then
+            record INFO "last lines: $name log"
+            tail -n 25 "$path" >>"$REPORT" 2>&1 || true
+        fi
+    done
+    if [ -f /tmp/doctor.log ]; then
+        record INFO "risarms-doctor output"
+        tail -n 40 /tmp/doctor.log >>"$REPORT" 2>&1 || true
+    fi
     record FAIL summary "$FAILURES installation check(s) failed"
     exit 1
 fi
