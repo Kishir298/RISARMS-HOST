@@ -32,13 +32,13 @@ def test_components_text_reports_missing_required(tmp_path, capsys):
 
 
 def test_components_json_for_complete_workspace(tmp_path, capsys):
-    for name in ("CORE-HOST", "CORE-CLIENT", "RISARMS-ui", "RESCS", "TIVISS-HOST"):
+    for name in ("CORE-HOST", "CORE-CLIENT", "RISARMS-ui", "RESCS", "TIVISS-HOST", "TIVISS-CLIENT"):
         (tmp_path / name).mkdir()
         (tmp_path / name / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
     assert main(["components", "--root", str(tmp_path), "--format", "json"]) == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["core-host"]["present"] is True
-    assert payload["tiviss-client"]["present"] is False
+    assert payload["tiviss-client"]["present"] is True
 
 
 def test_doctor_passes_on_umbrella_repo(capsys):

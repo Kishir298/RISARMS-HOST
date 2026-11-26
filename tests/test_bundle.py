@@ -19,6 +19,10 @@ def make_source(root: Path) -> None:
     (root / "CORE-CLIENT" / "client" / "entrypoint.py").write_text(
         "def main():\n", encoding="utf-8"
     )
+    (root / "TIVISS-CLIENT").mkdir(parents=True)
+    (root / "TIVISS-CLIENT" / "pyproject.toml").write_text(
+        "[project]\n", encoding="utf-8"
+    )
     (root / "services" / "RESCS").mkdir(parents=True)
     (root / "services" / "RESCS" / "pyproject.toml").write_text(
         "[project]\n", encoding="utf-8"
@@ -103,6 +107,7 @@ def test_tar_output_with_checksum(tmp_path):
     with tarfile.open(archive) as bundle_tar:
         names = bundle_tar.getnames()
     assert f"{member_root}/{INSTALL_SH}" in names
+    assert f"{member_root}/TIVISS-CLIENT/pyproject.toml" in names
     assert f"{member_root}/INSTALL.txt" in names
 
 

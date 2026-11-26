@@ -146,6 +146,7 @@ def test_stage_materialises_pinned_components(tmp_path):
     files = {
         "core-host": {"core/web/portal.html": "<html/>", "pyproject.toml": "[project]\n"},
         "core-client": {"client/entrypoint.py": "def main():\n"},
+        "tiviss-client": {"pyproject.toml": "[project]\n"},
         "rescs": {"pyproject.toml": "[project]\n"},
         "ascs": {"pyproject.toml": "[project]\n"},
         "asis": {"pyproject.toml": "[project]\n"},

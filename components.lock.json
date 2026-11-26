@@ -7,7 +7,7 @@
   "components": {
     "core-host": {
       "repository": "https://github.com/Kishir298/CORE-HOST.git",
-      "revision": "33963b007b12630c2ad4f37985ab5327efad1a8a",
+      "revision": "f1a9112fb540c2f8050f2c9b0c8cceea5fa63093",
       "path": "CORE-HOST"
     },
     "core-client": {
@@ -32,8 +32,13 @@
     },
     "tiviss-host": {
       "repository": "https://github.com/Kishir298/TIVISS-HOST.git",
-      "revision": "d3c5b65df332416af942a7abf60133a03ca05665",
+      "revision": "700e361698d79fef8cb8cef0abf3a4a79cef239e",
       "path": "services/TIVISS-HOST"
+    },
+    "tiviss-client": {
+      "repository": "https://github.com/Kishir298/TIVISS-CLIENT.git",
+      "revision": "616d4be10b0437d87e0fb42d1ed00c1ecb9935b5",
+      "path": "TIVISS-CLIENT"
     }
   }
 }

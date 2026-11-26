@@ -138,6 +138,7 @@ jobs:
           for marker in \
             CORE-HOST/core/web/portal.html \
             CORE-CLIENT/client/entrypoint.py \
+            TIVISS-CLIENT/pyproject.toml \
             services/RESCS/pyproject.toml \
             services/ASCS/pyproject.toml \
             services/ASIS/pyproject.toml \
@@ -199,6 +200,7 @@ jobs:
 
           tar -tzf "$archive" | grep -F "${name}/deployment/void/install.sh" >/dev/null
           tar -tzf "$archive" | grep -F "${name}/services/RESCS/pyproject.toml" >/dev/null
+          tar -tzf "$archive" | grep -F "${name}/TIVISS-CLIENT/pyproject.toml" >/dev/null
           tar -tzf "$archive" | grep -F "${name}/components.lock.json" >/dev/null
           tar -tzf "$archive" | grep -F "${name}/INSTALL.txt" >/dev/null
       - uses: actions/upload-artifact@v4

@@ -26,7 +26,7 @@ WORKSPACE_REPOS = (
     Component("risarms-ui", "RISARMS-ui", marker="pyproject.toml"),
     Component("rescs", "RESCS", marker="pyproject.toml"),
     Component("tiviss-host", "TIVISS-HOST", marker="pyproject.toml"),
-    Component("tiviss-client", "TIVISS-CLIENT", marker="pyproject.toml", required=False),
+    Component("tiviss-client", "TIVISS-CLIENT", marker="pyproject.toml"),
     Component("ascs", "ASCS", marker="pyproject.toml", required=False),
     Component("asis", "ASIS", marker="pyproject.toml", required=False),
     Component("risarms-docs", "RISARMS-DOCS", marker="README.md", required=False),
@@ -36,6 +36,7 @@ WORKSPACE_REPOS = (
 BUNDLE_SOURCES = (
     "CORE-HOST",
     "CORE-CLIENT",
+    "TIVISS-CLIENT",
     "services",
     "deployment",
     "compatibility.json",
@@ -51,6 +52,7 @@ BUNDLE_OPTIONAL = ("README.md", "LICENSE")
 BUNDLE_COMPONENT_PATHS = {
     "core-host": "CORE-HOST",
     "core-client": "CORE-CLIENT",
+    "tiviss-client": "TIVISS-CLIENT",
     "rescs": "services/RESCS",
     "ascs": "services/ASCS",
     "asis": "services/ASIS",
@@ -65,6 +67,7 @@ STAGE_SERVICE_METADATA = ("SOURCE-PROVENANCE.json",)
 BUNDLE_REQUIREMENTS = (
     Component("core-host", "CORE-HOST", marker="core/web/portal.html"),
     Component("core-client", "CORE-CLIENT", marker="client/entrypoint.py"),
+    Component("tiviss-client", "TIVISS-CLIENT", marker="pyproject.toml"),
     Component("services", "services", marker="RESCS/pyproject.toml"),
     Component("deployment", "deployment", marker="void/install.sh"),
     Component("compatibility", "compatibility.json"),
@@ -77,4 +80,8 @@ DEPLOYMENT_FILES = (
     "deployment/void/etc/nftables.d/risarms.nft",
     "deployment/void/etc/sv/risarms-core/run",
     "deployment/void/etc/sv/risarms-rescs/run",
+    "deployment/ubuntu/install.sh",
+    "deployment/ubuntu/doctor.sh",
+    "deployment/ubuntu/risarms-core.service",
+    "deployment/ubuntu/risarms-rescs.service",
 )

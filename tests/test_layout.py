@@ -3,7 +3,14 @@ from risarms_host.layout import BUNDLE_REQUIREMENTS, WORKSPACE_REPOS
 
 def test_required_workspace_repos():
     required = {component.name for component in WORKSPACE_REPOS if component.required}
-    assert required == {"core-host", "core-client", "risarms-ui", "rescs", "tiviss-host"}
+    assert required == {
+        "core-host",
+        "core-client",
+        "risarms-ui",
+        "rescs",
+        "tiviss-host",
+        "tiviss-client",
+    }
 
 
 def test_component_marker_file_detection(tmp_path):
@@ -28,6 +35,7 @@ def test_bundle_requirements_cover_install_contract(tmp_path):
     assert paths == {
         "CORE-HOST",
         "CORE-CLIENT",
+        "TIVISS-CLIENT",
         "services",
         "deployment",
         "compatibility.json",
