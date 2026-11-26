@@ -1,0 +1,65 @@
+name: Ubuntu server candidate
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install build tools
+        run: python -m pip install -e '.[test]' ruff cyclonedx-bom
+      - name: Lint and test
+        run: |
+          set -euo pipefail
+          python -m ruff check --select E9,F,I risarms_host tests
+          python -m pytest -q
+      - name: Shell, mode and line-ending checks
+        run: |
+          set -euo pipefail
+          find deployment/ubuntu -name '*.sh' -print0 | xargs -0 -n1 bash -n
+          bad_modes=$(git ls-files -s deployment/ubuntu/*.sh | awk '$1 != "100755" {print}')
+          if [ -n "$bad_modes" ]; then
+            echo "Ubuntu shell scripts must be mode 100755:" >&2
+            echo "$bad_modes" >&2
+            exit 1
+          fi
+          if grep -RIn $'\r' deployment/ubuntu; then
+            echo "Ubuntu deployment files must use LF endings" >&2
+            exit 1
+          fi
+      - name: Build from pinned component revisions
+        run: |
+          set -euo pipefail
+          export SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)
+          python -m risarms_host.ubuntu_release --out build/ubuntu
+          cyclonedx-py environment --output-file build/ubuntu/build-environment.cdx.json --output-reproducible
+          cd build/ubuntu
+          sha256sum CORE-Server-*.tar.gz ubuntu-provenance.json build-environment.cdx.json > SHA256SUMS
+          sha256sum -c SHA256SUMS
+          archive=$(ls CORE-Server-*.tar.gz)
+          name=${archive%.tar.gz}
+          for marker in \
+            deployment/ubuntu/install.sh \
+            deployment/ubuntu/configure.py \
+            deployment/ubuntu/risarms-core.service \
+            deployment/ubuntu/risarms-rescs.service \
+            TIVISS-CLIENT/pyproject.toml \
+            components.lock.json; do
+            tar -tzf "$archive" | grep -F "$name/$marker" >/dev/null
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CORE-Ubuntu-24.04-x86_64-CANDIDATE
+          path: |
+            build/ubuntu/*.tar.gz
+            build/ubuntu/SHA256SUMS
+            build/ubuntu/ubuntu-provenance.json
+            build/ubuntu/build-environment.cdx.json
+          if-no-files-found: error
