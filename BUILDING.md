@@ -45,11 +45,11 @@ tar -czf CORE-Server-$(python -c "import tomllib;print(tomllib.load(open('CORE-H
 ## Automated releases
 
 Server releases are owned by this repository. `.github/workflows/release.yml`
-stages `CORE-HOST`, `CORE-CLIENT`, `RESCS`, `ASCS`, `ASIS` and `TIVISS-HOST`
-from their owning repositories at the commits pinned in `components.lock.json`,
-assembles the Void x86_64 server archive, re-assembles it to prove the bytes are
-identical, installs it with the shipped Void installer in a
-`ghcr.io/void-linux/void-glibc-full` container, and emits `SHA256SUMS`,
+stages `CORE-HOST`, `CORE-CLIENT`, `TIVISS-CLIENT`, `RESCS`, `ASCS`, `ASIS` and
+`TIVISS-HOST` from their owning repositories at the commits pinned in
+`components.lock.json`, assembles the Void x86_64 server archive, re-assembles
+it to prove the bytes are identical, installs it with the shipped Void installer
+in a `ghcr.io/void-linux/void-glibc-full` container, and emits `SHA256SUMS`,
 `provenance.json` and a CycloneDX SBOM.
 
 A version tag `vX.Y.Z` must match `pyproject.toml`, `risarms_host/__init__.py`,
@@ -63,10 +63,25 @@ and released separately by `.github/workflows/desktop-release.yml` in
 monorepo pipeline (wheels and standalone executables for every desktop
 platform) no longer exists.
 
+## Ubuntu 24.04 candidate archive
+
+`.github/workflows/ubuntu-candidate.yml` (manual dispatch only) runs lint, the
+test suite, shell/mode/line-ending checks, then builds a candidate archive with
+`risarms_host/ubuntu_release.build()`:
+
+```bash
+python -m risarms_host.ubuntu_release --root . --out dist
+```
+
+Output: `CORE-Server-<version>-ubuntu24.04-x86_64.tar.gz` plus
+`ubuntu-provenance.json` and `build-environment.cdx.json`. The candidate is not
+a supported release target; it is never published by the Void release workflow.
+
 ## Tests
 
 ```bash
+python -m pytest -q
+ruff check --select E9,F,I risarms_host tests
 (cd CORE-HOST && python -m pytest -q)
 (cd CORE-CLIENT && python -m pytest -q)
-ruff check --select F CORE-HOST/core CORE-CLIENT/client
 ```

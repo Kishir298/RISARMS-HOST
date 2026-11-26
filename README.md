@@ -19,8 +19,9 @@ lives in a sibling repository:
 | Documentation | `RISARMS-DOCS` |
 
 The release bundle assembled by CI keeps the historical layout: the archive root
-contains `CORE-HOST/`, `CORE-CLIENT/`, `services/`, `deployment/` and
-`compatibility.json`, so `deployment/void/install.sh` keeps working unchanged.
+contains `CORE-HOST/`, `CORE-CLIENT/`, `TIVISS-CLIENT/`, `services/`,
+`deployment/` and `compatibility.json`, so `deployment/void/install.sh` keeps
+working unchanged.
 
 ## Umbrella CLI
 
@@ -42,8 +43,9 @@ non-zero when a check fails.
 ## Repository contents
 
 - `deployment/` — Void Linux installer, doctor/backup/restore/upgrade/rollback,
-  Caddy and nftables configuration, runit service definitions; Raspberry Pi
-  installer retained for provenance.
+  Caddy and nftables configuration, runit service definitions; the Ubuntu Server
+  24.04 LTS candidate under `deployment/ubuntu/` with systemd units and its own
+  guide; Raspberry Pi installer retained for provenance.
 - `services/` — vendored sources of the ASCS, ASIS, RESCS and TIVISS-HOST
   services with the git baselines recorded in `services/SOURCE-PROVENANCE.json`.
 - `install/` — historical wheel artifacts of earlier releases.
@@ -54,6 +56,9 @@ non-zero when a check fails.
   release; `risarms-host stage` materialises these pins.
 - `.github/workflows/release.yml` — server release orchestration (staging,
   assembly, install verification, checksums, provenance, SBOM, draft release).
+- `.github/workflows/ubuntu-candidate.yml` — static Ubuntu candidate CI
+  (lint, tests, shell/mode/LF checks, reproducible candidate archive).
+- `UBUNTU-PORT-FILES.md` — record of the merged Ubuntu candidate files.
 - `RELEASE-MANIFEST.json` — frozen per-file SHA-256 record of the 0.5.0 release
   (historical evidence; it is not regenerated for later releases).
 
@@ -147,6 +152,16 @@ sudo risarms-doctor
 - The compatibility source of truth is `compatibility.json`.
 - Panic, restart, and uninstall behavior are documented in the RISARMS-DOCS deployment guide. Removing `/var/lib/risarms` destroys data.
 - No CORE server update signature is implemented in this release. Do not claim signed server updates.
+
+### Ubuntu 24.04 candidate (not release-validated)
+
+`deployment/ubuntu/` is an additive Ubuntu Server 24.04 LTS x86_64/systemd
+candidate assembled by `.github/workflows/ubuntu-candidate.yml` into
+`CORE-Server-<version>-ubuntu24.04-x86_64.tar.gz`. The Void release remains
+the only release target; the Ubuntu candidate has not been installed, rebooted
+or validated on hardware. See `deployment/ubuntu/README.md` and
+`UBUNTU-PORT-FILES.md`. The installer is invoked as
+`sudo ./deployment/ubuntu/install.sh` from an assembled bundle only.
 
 ### Historical deployments
 

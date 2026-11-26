@@ -2,6 +2,33 @@
 
 All notable changes to CORE are documented here.
 
+## [Unreleased]
+
+### Added
+
+- Additive Ubuntu Server 24.04 LTS x86_64/systemd candidate under
+  `deployment/ubuntu/` (installer, systemd units, Caddy site, backup/restore/
+  upgrade/rollback/doctor, backup validator) with
+  `.github/workflows/ubuntu-candidate.yml` and `risarms_host/ubuntu_release.py`
+  building `CORE-Server-<version>-ubuntu24.04-x86_64.tar.gz`. Candidate only;
+  booted-system validation is pending. See `UBUNTU-PORT-FILES.md`.
+- `tiviss-client` pinned as a release component in `components.lock.json`
+  (bundle path `TIVISS-CLIENT/`), staged and verified by the release and
+  Ubuntu candidate workflows.
+
+### Changed
+
+- `risarms-host doctor` now also checks the Ubuntu installer entry points.
+- Component pins refreshed to the commits that ignore local secret stores and
+  LAN config in `CORE-HOST`, `TIVISS-HOST` and `TIVISS-CLIENT`.
+
+### Fixed
+
+- Ubuntu `upgrade.sh` refuses same-version upgrades instead of claiming the
+  installer will reinstall them; `install.sh` no longer requires the unused
+  `systemd-analyze`; `ubuntu_release.py` reads `project.version` without
+  requiring `tomllib` on Python 3.10; backups include `/etc/caddy/Caddyfile`.
+
 ## [0.6.0] — 2026-11-16
 
 ### Added

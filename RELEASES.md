@@ -20,7 +20,9 @@ protocol.
 CORE 0.6.0 server releases target **Void Linux x86_64 glibc with runit** only.
 The release archive is a source tree plus the Void installer and deployment
 assets; it is not a portable server binary. Cross-platform development tests do
-not imply additional supported server release targets.
+not imply additional supported server release targets. The manual
+`ubuntu-candidate.yml` workflow builds an Ubuntu 24.04 candidate archive for
+validation only; it never publishes and is not part of this release process.
 
 ## Pinned components
 
@@ -30,6 +32,7 @@ not imply additional supported server release targets.
 | --- | --- |
 | `core-host` | `CORE-HOST/` |
 | `core-client` | `CORE-CLIENT/` |
+| `tiviss-client` | `TIVISS-CLIENT/` |
 | `rescs` | `services/RESCS/` |
 | `ascs` | `services/ASCS/` |
 | `asis` | `services/ASIS/` |
@@ -59,9 +62,9 @@ created with `--draft`; nothing is published automatically.
 - `provenance.json` (unsigned in-toto statement, SLSA v1 shape)
 - `SHA256SUMS`
 
-The archive contains `CORE-HOST/`, `CORE-CLIENT/`, `services/`, `deployment/`,
-`compatibility.json`, `components.lock.json` and `INSTALL.txt`. Checksums,
-SBOM and provenance are not nested inside it.
+The archive contains `CORE-HOST/`, `CORE-CLIENT/`, `TIVISS-CLIENT/`,
+`services/`, `deployment/`, `compatibility.json`, `components.lock.json` and
+`INSTALL.txt`. Checksums, SBOM and provenance are not nested inside it.
 
 Archives are byte-identical when the same staged tree is assembled twice: entry
 order is sorted, ownership is normalised and timestamps come from
