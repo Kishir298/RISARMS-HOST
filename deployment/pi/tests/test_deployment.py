@@ -1,7 +1,9 @@
 import importlib.util
 import json
+import os
 from pathlib import Path
 from unittest.mock import patch
+
 import pytest
 
 HERE=Path(__file__).resolve().parents[1]
@@ -28,7 +30,9 @@ def test_initial_keys_and_config_preserve_existing_data(tmp_path):
     config=json.loads((data/'core/gateway.json').read_text())
     assert 'RESCS_API_KEY='+config['rescs_key'] in (base/'rescs.env').read_text()
     assert 'CORE_SAFE_CHAT=1' in (base/'core.env').read_text()
-    assert (base/'core.env').stat().st_mode & 0o777==0o600
+    if os.name != "nt":
+        # Windows chmod only exposes the read-only flag, not POSIX 0600.
+        assert (base/'core.env').stat().st_mode & 0o777==0o600
     previous=(base/'rescs.env').read_bytes()
     with pytest.raises(ValueError):module.configure(base,data,'11111111-2222-3333-4444-555555555555')
     assert (base/'rescs.env').read_bytes()==previous

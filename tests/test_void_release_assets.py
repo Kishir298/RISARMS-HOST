@@ -24,12 +24,25 @@ def _posix_tool(name: str) -> str:
         return found
     windows_dir = os.environ.get("SystemRoot", r"C:\Windows").lower()
     suffix = ".exe"
+
+    def acceptable(candidate: str) -> bool:
+        lowered = candidate.lower()
+        # Skip WSL/System32 shims: they cannot open Windows drive paths.
+        return not (lowered.startswith(windows_dir) or "\\windowsapps\\" in lowered)
+
     for entry in os.environ.get("PATH", "").split(os.pathsep):
         candidate = os.path.join(entry, name + suffix)
-        if os.path.isfile(candidate) and not candidate.lower().startswith(windows_dir):
+        if os.path.isfile(candidate) and acceptable(candidate):
+            return candidate
+    program_files = os.environ.get("ProgramFiles", r"C:\Program Files")
+    for candidate in (
+        os.path.join(program_files, "Git", "bin", name + suffix),
+        os.path.join(program_files, "Git", "usr", "bin", name + suffix),
+    ):
+        if os.path.isfile(candidate):
             return candidate
     found = shutil.which(name)
-    assert found, f"{name} not found on PATH"
+    assert found and acceptable(found), f"{name} not found on PATH"
     return found
 
 
@@ -131,7 +144,7 @@ def test_deployment_scripts_are_executable_and_parse():
         if os.name == "posix":
             assert stat.S_IMODE(script.stat().st_mode) & stat.S_IXUSR
         parse = subprocess.run(
-            [_posix_tool("bash"), "-n", str(script)],
+            [_posix_tool("bash"), "-n", script.as_posix()],
             capture_output=True,
             text=True,
         )
@@ -143,7 +156,7 @@ def test_deployment_scripts_are_executable_and_parse():
         for relative in ("run", "log/run"):
             target = VOID / "etc" / "sv" / name / relative
             parse = subprocess.run(
-                [_posix_tool("sh"), "-n", str(target)],
+                [_posix_tool("sh"), "-n", target.as_posix()],
                 capture_output=True,
                 text=True,
             )

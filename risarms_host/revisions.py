@@ -9,6 +9,7 @@ bundle layout so ``deployment/void/install.sh`` keeps working unchanged.
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -30,6 +31,15 @@ REPOSITORY_RE = re.compile(r"https://[A-Za-z0-9._/-]+\.git")
 
 class RevisionError(ValueError):
     """The component lock is missing, malformed or inconsistent."""
+
+
+def _remove_read_only(func, path, _exc):
+    """Clear Windows read-only attributes so rmtree can delete git objects."""
+    try:
+        os.chmod(path, 0o700)
+    except OSError:
+        pass
+    func(path)
 
 
 @dataclass(frozen=True)
@@ -211,6 +221,6 @@ def stage(
         # A release bundle ships sources, not their git metadata.
         git_dir = target / ".git"
         if git_dir.is_dir():
-            shutil.rmtree(git_dir)
+            shutil.rmtree(git_dir, onerror=_remove_read_only)
 
     return destination
