@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "project": "CORE",
-  "display_name": "C.O.R.E. — Communication, Organization and Resource Engine",
+  "display_name": "C.O.R.E. \u2014 Communication, Organization and Resource Engine",
   "version": "0.6.0",
   "release_channel": "beta",
   "standalone": true,
@@ -9,12 +9,16 @@
     "host": {
       "package": "core",
       "version": "0.6.0",
-      "console_scripts": ["core-host"]
+      "console_scripts": [
+        "core-host"
+      ]
     },
     "client": {
       "package": "core-client",
       "version": "0.6.0",
-      "console_scripts": ["core-client"]
+      "console_scripts": [
+        "core-client"
+      ]
     },
     "rescs": {
       "package": "rescs",
@@ -25,17 +29,23 @@
   "server_deployment": {
     "os": "linux",
     "distribution": "void",
-    "architectures": ["x86_64"],
+    "architectures": [
+      "x86_64"
+    ],
     "libc": "glibc",
     "init": "runit",
-    "install_methods": ["source-release-archive"],
+    "install_methods": [
+      "source-release-archive"
+    ],
     "notes": "CORE 0.6.0 server releases target Void Linux x86_64 glibc only. Other platforms are not supported for the server."
   },
   "supported_operating_systems": [
     {
       "os": "linux",
       "distribution": "void",
-      "architectures": ["x86_64"],
+      "architectures": [
+        "x86_64"
+      ],
       "role": "server",
       "libc": "glibc",
       "init": "runit",
@@ -43,21 +53,30 @@
     },
     {
       "os": "windows",
-      "architectures": ["x86_64", "arm64"],
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
       "role": "legacy-client",
       "minimum_version": "10 22H2",
       "notes": "Legacy CORE-CLIENT only. Not part of the CORE 0.6.0 server release."
     },
     {
       "os": "macos",
-      "architectures": ["x86_64", "arm64"],
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
       "role": "legacy-client",
       "minimum_version": "12.0",
       "notes": "Legacy CORE-CLIENT only. Desktop and browser modes are delivered by RISARMS-ui 0.6.0."
     },
     {
       "os": "linux",
-      "architectures": ["x86_64", "arm64"],
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
       "role": "legacy-client",
       "minimum_version": "glibc 2.28",
       "notes": "Legacy CORE-CLIENT only. Not part of the CORE 0.6.0 server release."
@@ -66,15 +85,26 @@
   "runtime": {
     "kind": "python",
     "minimum_version": "3.10",
-    "install_methods": ["source-release-archive", "pip"]
+    "install_methods": [
+      "source-release-archive",
+      "pip"
+    ]
   },
   "core_protocol": {
     "version": "0.4.0",
-    "supported_versions": ["0.3.0", "0.4.0"],
+    "supported_versions": [
+      "0.3.0",
+      "0.4.0"
+    ],
     "negotiated_on_handshake": true,
     "source": "CORE-HOST/core/communication/protocol.py"
   },
-  "integrations": ["rescs", "asis", "ascs", "tiviss"],
+  "integrations": [
+    "rescs",
+    "asis",
+    "ascs",
+    "tiviss"
+  ],
   "build_metadata": {
     "builder": "GitHub Actions",
     "artifact_naming": "CORE-Server-{version}-void-x86_64-{format}",
@@ -83,5 +113,14 @@
     "provenance": "in-toto Statement (SLSA v1 shape), unsigned",
     "component_lock": "components.lock.json",
     "deterministic_archives": true
-  }
+  },
+  "capabilities": [
+    "device_approval_v1",
+    "security_status_v1",
+    "security_events_v1",
+    "supervision_contract_v1",
+    "quota_policy_v1",
+    "memory_sync_v1",
+    "permission_modes_v1"
+  ]
 }
